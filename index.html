@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Service Tools</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"
+        integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI"
+        crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #f5f5f7; color: #1d1d1f; min-height: 100vh; }
+
+  header { background: #1d1d1f; color: #fff; padding: 16px 24px;
+           display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  #breadcrumb { font-size: 0.9rem; color: #aaa; }
+  #breadcrumb a { color: #aaa; text-decoration: none; cursor: pointer; }
+  #breadcrumb a:hover { color: #fff; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 100px;
+               transition: margin-right .3s ease; }
+  .container.preview-open { margin-right: 50%; max-width: none; }
+
+  /* setup banner */
+  .setup-banner { background: #fff; border-radius: 12px; padding: 28px;
+                  box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .setup-banner h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
+  .setup-banner p { font-size: 0.92rem; color: #444; margin-bottom: 16px; line-height: 1.6; }
+  .bookmarklet-btn { display: inline-block; background: #007aff; color: #fff;
+                     padding: 11px 20px; border-radius: 8px; text-decoration: none;
+                     font-weight: 600; font-size: 0.95rem; cursor: grab; }
+  .bookmarklet-btn:hover { background: #0060df; }
+  .setup-steps { font-size: 0.9rem; color: #555; margin-top: 16px;
+                 padding-left: 20px; line-height: 2; }
+  .hint { font-size: 0.82rem; color: #888; margin-top: 16px; line-height: 1.5; }
+
+  /* song list */
+  .song { background: #fff; border-radius: 12px; margin-bottom: 16px;
+          box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
+  .song-header { display: flex; align-items: center; gap: 12px;
+                 padding: 16px 20px; background: #fafafa;
+                 border-bottom: 1px solid #e8e8e8; }
+  .song-num { font-size: 0.8rem; color: #999; min-width: 20px; }
+  .song-name { font-weight: 600; flex: 1; }
+  .pdf-list { padding: 12px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .pdf-row { display: flex; align-items: center; gap: 10px; }
+  .pdf-row input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; accent-color: #007aff; }
+  .pdf-link { font-size: 0.9rem; color: #007aff; cursor: pointer; flex: 1;
+              text-decoration: underline; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .no-pdf { font-size: 0.85rem; color: #999; padding: 12px 20px; }
+
+  .footnote { font-size: 0.78rem; color: #aaa; text-align: center; margin-top: 24px; line-height: 1.5; }
+
+  /* PDF preview panel */
+  #preview-panel { position: fixed; top: 0; right: -50%; width: 48%; height: 100vh;
+                   background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,.15);
+                   transition: right .3s ease; z-index: 100; display: flex; flex-direction: column; }
+  #preview-panel.open { right: 0; }
+  #preview-header { padding: 16px 20px; display: flex; align-items: center;
+                    border-bottom: 1px solid #e8e8e8; gap: 12px; }
+  #preview-title { flex: 1; font-weight: 600; font-size: 0.95rem;
+                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #preview-close { background: none; border: none; font-size: 1.4rem;
+                   cursor: pointer; color: #666; line-height: 1; }
+  #preview-frame { flex: 1; border: none; }
+
+  /* bottom bar */
+  #action-bar { position: fixed; bottom: 0; left: 0; right: 0;
+                background: #fff; border-top: 1px solid #e8e8e8;
+                padding: 14px 24px; display: flex; align-items: center;
+                gap: 16px; transform: translateY(100%);
+                transition: transform .25s, right .3s ease; }
+  #action-bar.visible { transform: translateY(0); }
+  #action-bar.preview-open { right: 50%; }
+  #selected-count { font-size: 0.9rem; color: #666; }
+  #download-btn { margin-left: auto; background: #007aff; color: #fff;
+                  border: none; padding: 10px 22px; border-radius: 8px;
+                  font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+  #download-btn:hover { background: #0060df; }
+  #download-btn:disabled { background: #aaa; cursor: default; }
+  #dl-status { font-size: 0.85rem; color: #666; }
+
+  .spinner { display: inline-block; width: 16px; height: 16px;
+             border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+             border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Service Tools</h1>
+    <div id="breadcrumb"></div>
+  </div>
+</header>
+
+<div class="container" id="main"></div>
+
+<div id="preview-panel">
+  <div id="preview-header">
+    <span id="preview-title"></span>
+    <button id="preview-close" onclick="closePreview()">&#x2715;</button>
+  </div>
+  <iframe id="preview-frame" src=""></iframe>
+</div>
+
+<div id="action-bar">
+  <span id="selected-count"></span>
+  <span id="dl-status"></span>
+  <button id="download-btn" onclick="downloadCombined()">Download Combined PDF</button>
+</div>
+
+<script>
+let plan = null;          // {name, date, songs:[{name, pdfs:[{name,url}]}]}
+let selectedPdfs = [];    // [{name,url}] in service order
+
+// ── bookmarklet ───────────────────────────────────────────────────────────────
+// Built from the page's own origin so it always points back to wherever this is hosted.
+function buildBookmarklet(origin) {
+  const src = `(function(){
+    var el=document.querySelector('[x-data]');
+    var p=el&&el._x_dataStack&&el._x_dataStack[0]&&el._x_dataStack[0].store&&el._x_dataStack[0].store.plan;
+    if(!p||!p.items){alert('Open a ChurchSuite plan page first, and let it finish loading.');return;}
+    var date=p.dateTimeStart?JSON.stringify(p.dateTimeStart).slice(1,11):'';
+    var songs=p.items.filter(function(i){return i.song;}).map(function(i){
+      return {name:i.name,pdfs:Object.values(i.userFiles||{}).filter(function(f){return f.extension==='pdf';}).map(function(f){return {name:f.name,url:f.url};})};
+    });
+    var data={name:p.name||'Service',date:date,songs:songs};
+    var enc=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(data)))));
+    window.location='${origin}/#'+enc;
+  })();`;
+  return 'javascript:' + encodeURIComponent(src);
+}
+
+// ── routing ───────────────────────────────────────────────────────────────────
+function decodeHash() {
+  const h = location.hash.slice(1);
+  if (!h) return null;
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(h)))));
+  } catch (e) {
+    return null;
+  }
+}
+
+function route() {
+  selectedPdfs = [];
+  updateActionBar();
+  closePreview();
+  plan = decodeHash();
+  if (plan && plan.songs) {
+    renderPlan();
+  } else {
+    renderSetup();
+  }
+}
+
+// ── setup / installer view ────────────────────────────────────────────────────
+function renderSetup() {
+  setBreadcrumb([]);
+  const a = `<a class="bookmarklet-btn" id="bm">&#128278; Import Plan PDFs</a>`;
+  document.getElementById('main').innerHTML = `
+    <div class="setup-banner">
+      <h2>One-time setup</h2>
+      <p>Drag the button below onto your bookmarks bar. Then, on any ChurchSuite service&nbsp;plan page, click it to pull the music PDFs into this tool.</p>
+      ${a}
+      <ol class="setup-steps">
+        <li>Drag <strong>Import Plan PDFs</strong> to your bookmarks bar</li>
+        <li>Open your service plan in ChurchSuite and let it load</li>
+        <li>Click the bookmarklet &mdash; you'll arrive back here with every song's PDFs ready to preview, pick and combine</li>
+      </ol>
+      <p class="hint">Nothing is uploaded or stored. The plan data lives only in this page and disappears when you close or leave it.</p>
+    </div>`;
+  document.getElementById('bm').href = buildBookmarklet(location.origin);
+}
+
+// ── plan view ─────────────────────────────────────────────────────────────────
+function renderPlan() {
+  setBreadcrumb([{label: 'Setup', action: goSetup}, {label: plan.name || 'Service'}]);
+  const songs = plan.songs;
+  const main = document.getElementById('main');
+
+  if (!songs.length) { main.innerHTML = '<p>No songs found in this plan.</p>'; return; }
+
+  main.innerHTML = songs.map((s, i) => {
+    const pdfRows = (s.pdfs && s.pdfs.length)
+      ? s.pdfs.map((p, pi) => `
+          <div class="pdf-row">
+            <input type="checkbox" data-name="${esc(p.name)}" data-url="${esc(p.url)}"
+              data-order="${i * 100 + pi}" onchange="onCheckboxChange()">
+            <span class="pdf-link" onclick="previewPdf('${esc(p.url)}', '${esc(p.name)}')">${esc(p.name)}</span>
+          </div>`).join('')
+      : `<div class="no-pdf">No PDFs attached</div>`;
+
+    return `
+      <div class="song">
+        <div class="song-header">
+          <span class="song-num">${i + 1}</span>
+          <span class="song-name">${esc(s.name)}</span>
+        </div>
+        <div class="pdf-list">${pdfRows}</div>
+      </div>`;
+  }).join('') +
+  `<div class="footnote">For your worship team's own CCLI-licensed use.</div>`;
+}
+
+function goSetup() {
+  // Clear the hash to return to the installer view.
+  history.pushState('', '', location.pathname);
+  route();
+}
+
+// ── checkboxes / action bar ───────────────────────────────────────────────────
+function onCheckboxChange() {
+  const checked = [...document.querySelectorAll('input[type=checkbox]:checked')];
+  checked.sort((a, b) => +a.dataset.order - +b.dataset.order);
+  selectedPdfs = checked.map(cb => ({name: cb.dataset.name, url: cb.dataset.url}));
+  updateActionBar();
+}
+
+function updateActionBar() {
+  const bar = document.getElementById('action-bar');
+  const count = document.getElementById('selected-count');
+  if (selectedPdfs.length) {
+    bar.classList.add('visible');
+    count.textContent = selectedPdfs.length + ' PDF' + (selectedPdfs.length > 1 ? 's' : '') + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+  document.getElementById('dl-status').textContent = '';
+}
+
+// ── PDF preview ───────────────────────────────────────────────────────────────
+function previewPdf(url, name) {
+  document.getElementById('preview-title').textContent = name;
+  document.getElementById('preview-frame').src = url;
+  document.getElementById('preview-panel').classList.add('open');
+  document.getElementById('main').classList.add('preview-open');
+  document.getElementById('action-bar').classList.add('preview-open');
+}
+
+function closePreview() {
+  document.getElementById('preview-panel').classList.remove('open');
+  document.getElementById('preview-frame').src = '';
+  document.getElementById('main').classList.remove('preview-open');
+  document.getElementById('action-bar').classList.remove('preview-open');
+}
+
+// ── merge + download (all in-browser) ─────────────────────────────────────────
+async function downloadCombined() {
+  const btn = document.getElementById('download-btn');
+  const status = document.getElementById('dl-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Combining…';
+  status.textContent = '';
+
+  try {
+    const { PDFDocument } = PDFLib;
+    const out = await PDFDocument.create();
+    for (const p of selectedPdfs) {
+      const bytes = await fetch(p.url).then(r => {
+        if (!r.ok) throw new Error('Could not fetch ' + p.name);
+        return r.arrayBuffer();
+      });
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach(pg => out.addPage(pg));
+    }
+    const merged = await out.save();
+    const blob = new Blob([merged], { type: 'application/pdf' });
+    const filename = (plan && plan.date) ? ('service-' + plan.date + '.pdf') : 'service.pdf';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    status.textContent = 'Downloaded ' + filename;
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Download Combined PDF';
+  }
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function setBreadcrumb(parts) {
+  const bc = document.getElementById('breadcrumb');
+  if (!parts.length) { bc.textContent = ''; return; }
+  bc.innerHTML = parts.map((p, i) =>
+    i < parts.length - 1
+      ? `<a onclick="${p.action.name}()">${esc(p.label)}</a> › `
+      : esc(p.label)
+  ).join('');
+}
+
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
