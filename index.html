@@ -261,7 +261,10 @@ async function downloadCombined() {
     const { PDFDocument } = PDFLib;
     const out = await PDFDocument.create();
     for (const p of selectedPdfs) {
-      const bytes = await fetch(p.url).then(r => {
+      // Use a unique URL + no-store so this CORS fetch can't reuse a non-CORS
+      // copy the preview iframe may have cached (which would lack CORS headers).
+      const bustedUrl = p.url + (p.url.indexOf('?') === -1 ? '?' : '&') + 'cors=' + Date.now();
+      const bytes = await fetch(bustedUrl, { cache: 'no-store' }).then(r => {
         if (!r.ok) throw new Error('Could not fetch ' + p.name);
         return r.arrayBuffer();
       });
