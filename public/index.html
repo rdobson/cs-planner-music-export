@@ -236,7 +236,7 @@ function updateActionBar() {
 // ── PDF preview ───────────────────────────────────────────────────────────────
 function previewPdf(url, name) {
   document.getElementById('preview-title').textContent = name;
-  document.getElementById('preview-frame').src = url;
+  document.getElementById('preview-frame').src = '/pdf?url=' + encodeURIComponent(url);
   document.getElementById('preview-panel').classList.add('open');
   document.getElementById('main').classList.add('preview-open');
   document.getElementById('action-bar').classList.add('preview-open');
@@ -261,10 +261,9 @@ async function downloadCombined() {
     const { PDFDocument } = PDFLib;
     const out = await PDFDocument.create();
     for (const p of selectedPdfs) {
-      // Use a unique URL + no-store so this CORS fetch can't reuse a non-CORS
-      // copy the preview iframe may have cached (which would lack CORS headers).
-      const bustedUrl = p.url + (p.url.indexOf('?') === -1 ? '?' : '&') + 'cors=' + Date.now();
-      const bytes = await fetch(bustedUrl, { cache: 'no-store' }).then(r => {
+      // Fetch via our own same-origin proxy so the browser never makes a
+      // cross-origin request (avoids CORS / extension interference entirely).
+      const bytes = await fetch('/pdf?url=' + encodeURIComponent(p.url)).then(r => {
         if (!r.ok) throw new Error('Could not fetch ' + p.name);
         return r.arrayBuffer();
       });
