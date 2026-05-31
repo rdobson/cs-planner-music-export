@@ -32,9 +32,21 @@
                      padding: 11px 20px; border-radius: 8px; text-decoration: none;
                      font-weight: 600; font-size: 0.95rem; cursor: grab; }
   .bookmarklet-btn:hover { background: #0060df; }
-  .setup-steps { font-size: 0.9rem; color: #555; margin-top: 16px;
-                 padding-left: 20px; line-height: 2; }
+  .setup-steps { font-size: 0.9rem; color: #555; margin-top: 12px;
+                 padding-left: 20px; line-height: 1.9; }
   .hint { font-size: 0.82rem; color: #888; margin-top: 16px; line-height: 1.5; }
+  .setup-section { margin-top: 22px; padding-top: 20px; border-top: 1px solid #eee; }
+  .setup-section:first-of-type { border-top: none; padding-top: 4px; margin-top: 8px; }
+  .setup-section h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+  .setup-section > p { font-size: 0.9rem; color: #444; margin-bottom: 12px; line-height: 1.55; }
+  .code-box { position: relative; margin-top: 10px; }
+  .code-box textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                       font-size: 0.76rem; line-height: 1.5; padding: 12px; padding-top: 40px;
+                       border: 1px solid #ddd; border-radius: 8px; background: #f8f8fa; color: #333;
+                       resize: vertical; white-space: pre; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: #007aff; color: #fff; border: none;
+              padding: 6px 13px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+  .copy-btn:hover { background: #0060df; }
 
   /* song list */
   .song { background: #fff; border-radius: 12px; margin-bottom: 16px;
@@ -135,6 +147,25 @@ function buildBookmarklet(origin) {
   return 'javascript:' + encodeURIComponent(src);
 }
 
+// Script the user pastes into an Apple Shortcut's "Run JavaScript on Web Page"
+// action (iOS). Same extraction as the bookmarklet, but hands the URL back via
+// completion() so a following "Open URLs" action can open JED.
+function buildShortcutJs(origin) {
+  return [
+    "var el = document.querySelector('[x-data]');",
+    "var p = el && el._x_dataStack && el._x_dataStack[0] && el._x_dataStack[0].store && el._x_dataStack[0].store.plan;",
+    "if (!p || !p.items) { completion('" + origin + "'); } else {",
+    "  var date = p.dateTimeStart ? JSON.stringify(p.dateTimeStart).slice(1, 11) : '';",
+    "  var songs = p.items.filter(function (i) { return i.song; }).map(function (i) {",
+    "    return { name: i.name, pdfs: Object.values(i.userFiles || {}).filter(function (f) { return f.extension === 'pdf'; }).map(function (f) { return { name: f.name, url: f.url }; }) };",
+    "  });",
+    "  var data = { name: p.name || 'Service', date: date, songs: songs };",
+    "  var enc = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(data)))));",
+    "  completion('" + origin + "/#' + enc);",
+    "}"
+  ].join('\n');
+}
+
 // ── routing ───────────────────────────────────────────────────────────────────
 function decodeHash() {
   const h = location.hash.slice(1);
@@ -161,20 +192,56 @@ function route() {
 // ── setup / installer view ────────────────────────────────────────────────────
 function renderSetup() {
   setBreadcrumb([]);
-  const a = `<a class="bookmarklet-btn" id="bm">&#128278; Import Plan PDFs</a>`;
   document.getElementById('main').innerHTML = `
     <div class="setup-banner">
-      <h2>One-time setup</h2>
-      <p>Drag the button below onto your bookmarks bar. Then, on any ChurchSuite service&nbsp;plan page, click it to pull the music PDFs into this tool.</p>
-      ${a}
-      <ol class="setup-steps">
-        <li>Drag <strong>Import Plan PDFs</strong> to your bookmarks bar</li>
-        <li>Open your service plan in ChurchSuite and let it load</li>
-        <li>Click the bookmarklet &mdash; you'll arrive back here with every song's PDFs ready to preview, pick and combine</li>
-      </ol>
+      <h2>Set up JED</h2>
+      <p>JED reads the music PDFs straight from your ChurchSuite service plan. It needs a quick one-time setup &mdash; choose your device below.</p>
+
+      <div class="setup-section">
+        <h3>&#128187; On a computer</h3>
+        <p>Drag this button onto your bookmarks bar:</p>
+        <a class="bookmarklet-btn" id="bm">&#128278; Import Plan PDFs</a>
+        <ol class="setup-steps">
+          <li>Drag <strong>Import Plan PDFs</strong> up to your bookmarks bar</li>
+          <li>Open your service plan in ChurchSuite (same browser) and let it finish loading</li>
+          <li>Click the bookmark &mdash; you'll come back here with every song's PDFs ready to preview, pick and combine</li>
+        </ol>
+      </div>
+
+      <div class="setup-section">
+        <h3>&#128241; On an iPad or iPhone (Safari)</h3>
+        <p>iOS can't use bookmarklets easily, so use an Apple <strong>Shortcut</strong> instead. You only build it once.</p>
+        <ol class="setup-steps">
+          <li>Open the <strong>Shortcuts</strong> app and tap <strong>+</strong> (top-right) to create a new shortcut</li>
+          <li>Tap <strong>Add Action</strong>, search for <strong>Run JavaScript on Web Page</strong>, and tap it to add it</li>
+          <li>In that action, delete the sample code, then paste the script below (tap <strong>Copy script</strong> first):
+            <div class="code-box">
+              <button class="copy-btn" id="copyShortcut" type="button">Copy script</button>
+              <textarea id="shortcutScript" readonly spellcheck="false" rows="7"></textarea>
+            </div>
+          </li>
+          <li>Tap <strong>Add Action</strong> again, search <strong>Open URLs</strong>, add it, and set its address to the <strong>JavaScript Result</strong> variable from the previous step</li>
+          <li>Tap the shortcut name at the top &rarr; <strong>Rename</strong> it <strong>Send to JED</strong>, and check that <strong>Show in Share Sheet</strong> is on</li>
+          <li>Tap <strong>Done</strong></li>
+        </ol>
+        <p class="hint" style="margin-top:10px"><strong>To use it:</strong> in <strong>Safari</strong> (not Chrome), open your ChurchSuite plan and let it load &rarr; tap the <strong>Share</strong> icon &rarr; tap <strong>Send to JED</strong>. The first time, tap <strong>Allow</strong> when iOS asks permission to run the script. You'll land here with the plan loaded.</p>
+      </div>
+
       <p class="hint">Nothing is uploaded or stored. The plan data lives only in this page and disappears when you close or leave it.</p>
     </div>`;
   document.getElementById('bm').href = buildBookmarklet(location.origin);
+  document.getElementById('shortcutScript').value = buildShortcutJs(location.origin);
+  const copyBtn = document.getElementById('copyShortcut');
+  copyBtn.addEventListener('click', async () => {
+    const ta = document.getElementById('shortcutScript');
+    try {
+      await navigator.clipboard.writeText(ta.value);
+    } catch (e) {
+      ta.focus(); ta.select(); document.execCommand('copy');
+    }
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy script'; }, 1500);
+  });
 }
 
 // ── plan view ─────────────────────────────────────────────────────────────────
