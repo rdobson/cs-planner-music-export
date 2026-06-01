@@ -129,6 +129,12 @@
 let plan = null;          // {name, date, songs:[{name, pdfs:[{name,url}]}]}
 let selectedPdfs = [];    // [{name,url}] in service order
 
+// Once you've built the iOS Shortcut and shared it (Shortcuts → the shortcut →
+// Share → Copy iCloud Link), paste that https://www.icloud.com/shortcuts/...
+// link here. The landing page will then show a one-tap "Add the Shortcut"
+// button for your team. Leave blank to show the manual build steps instead.
+const SHORTCUT_ICLOUD_URL = "";
+
 // ── bookmarklet ───────────────────────────────────────────────────────────────
 // Built from the page's own origin so it always points back to wherever this is hosted.
 function buildBookmarklet(origin) {
@@ -190,6 +196,49 @@ function route() {
 }
 
 // ── setup / installer view ────────────────────────────────────────────────────
+// The manual "build the Shortcut by hand" steps. Always rendered (visible, or
+// inside a <details> when a one-tap link exists) so the copy box stays wired up.
+function manualShortcutStepsHtml() {
+  return `
+    <ol class="setup-steps">
+      <li>Open the <strong>Shortcuts</strong> app and tap <strong>+</strong> (top-right) to create a new shortcut</li>
+      <li>Tap <strong>Add Action</strong>, search for <strong>Run JavaScript on Web Page</strong>, and tap it to add it</li>
+      <li>In that action, delete the sample code, then paste the script below (tap <strong>Copy script</strong> first):
+        <div class="code-box">
+          <button class="copy-btn" id="copyShortcut" type="button">Copy script</button>
+          <textarea id="shortcutScript" readonly spellcheck="false" rows="7"></textarea>
+        </div>
+      </li>
+      <li>Tap <strong>Add Action</strong> again, search <strong>Open URLs</strong>, add it, and set its address to the <strong>JavaScript Result</strong> variable from the previous step</li>
+      <li>Tap the shortcut name at the top &rarr; <strong>Rename</strong> it <strong>Send to JED</strong>, and check that <strong>Show in Share Sheet</strong> is on</li>
+      <li>Tap <strong>Done</strong></li>
+    </ol>`;
+}
+
+const IOS_USAGE_HTML =
+  `<p class="hint" style="margin-top:10px"><strong>To use it:</strong> in ` +
+  `<strong>Safari</strong> (not Chrome), open your ChurchSuite plan and let it ` +
+  `load &rarr; tap the <strong>Share</strong> icon &rarr; tap <strong>Send to JED` +
+  `</strong>. The first time, tap <strong>Allow</strong> when iOS asks permission ` +
+  `to run the script. You'll land here with the plan loaded.</p>`;
+
+function iosSectionHtml() {
+  if (SHORTCUT_ICLOUD_URL) {
+    return `
+      <p>Add the ready-made Shortcut in one tap, then you're set:</p>
+      <a class="bookmarklet-btn" href="${esc(SHORTCUT_ICLOUD_URL)}">&#128241; Add the JED Shortcut</a>
+      ${IOS_USAGE_HTML}
+      <details style="margin-top:14px">
+        <summary class="hint" style="cursor:pointer">Prefer to build it by hand?</summary>
+        ${manualShortcutStepsHtml()}
+      </details>`;
+  }
+  return `
+    <p>iOS can't use bookmarklets easily, so use an Apple <strong>Shortcut</strong> instead. You only build it once.</p>
+    ${manualShortcutStepsHtml()}
+    ${IOS_USAGE_HTML}`;
+}
+
 function renderSetup() {
   setBreadcrumb([]);
   document.getElementById('main').innerHTML = `
@@ -210,21 +259,7 @@ function renderSetup() {
 
       <div class="setup-section">
         <h3>&#128241; On an iPad or iPhone (Safari)</h3>
-        <p>iOS can't use bookmarklets easily, so use an Apple <strong>Shortcut</strong> instead. You only build it once.</p>
-        <ol class="setup-steps">
-          <li>Open the <strong>Shortcuts</strong> app and tap <strong>+</strong> (top-right) to create a new shortcut</li>
-          <li>Tap <strong>Add Action</strong>, search for <strong>Run JavaScript on Web Page</strong>, and tap it to add it</li>
-          <li>In that action, delete the sample code, then paste the script below (tap <strong>Copy script</strong> first):
-            <div class="code-box">
-              <button class="copy-btn" id="copyShortcut" type="button">Copy script</button>
-              <textarea id="shortcutScript" readonly spellcheck="false" rows="7"></textarea>
-            </div>
-          </li>
-          <li>Tap <strong>Add Action</strong> again, search <strong>Open URLs</strong>, add it, and set its address to the <strong>JavaScript Result</strong> variable from the previous step</li>
-          <li>Tap the shortcut name at the top &rarr; <strong>Rename</strong> it <strong>Send to JED</strong>, and check that <strong>Show in Share Sheet</strong> is on</li>
-          <li>Tap <strong>Done</strong></li>
-        </ol>
-        <p class="hint" style="margin-top:10px"><strong>To use it:</strong> in <strong>Safari</strong> (not Chrome), open your ChurchSuite plan and let it load &rarr; tap the <strong>Share</strong> icon &rarr; tap <strong>Send to JED</strong>. The first time, tap <strong>Allow</strong> when iOS asks permission to run the script. You'll land here with the plan loaded.</p>
+        ${iosSectionHtml()}
       </div>
 
       <p class="hint">Nothing is uploaded or stored. The plan data lives only in this page and disappears when you close or leave it.</p>
