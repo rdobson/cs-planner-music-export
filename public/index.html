@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JED</title>
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"
-        integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI"
-        crossorigin="anonymous"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -295,6 +292,7 @@ function goSetup() {
 
 // ── checkboxes / action bar ───────────────────────────────────────────────────
 function onCheckboxChange() {
+  loadPdfLib().catch(() => {});  // warm it up so Download is quick; errors surface on Download
   const checked = [...document.querySelectorAll('input[type=checkbox]:checked')];
   checked.sort((a, b) => +a.dataset.order - +b.dataset.order);
   selectedPdfs = checked.map(cb => ({name: cb.dataset.name, url: cb.dataset.url}));
@@ -330,6 +328,24 @@ function closePreview() {
 }
 
 // ── merge + download (all in-browser) ─────────────────────────────────────────
+// pdf-lib is ~500 KB, so it's loaded on demand rather than in <head>, where it
+// held up the first render (noticeably slow on iPad).
+let pdfLibLoading = null;
+function loadPdfLib() {
+  if (!pdfLibLoading) {
+    pdfLibLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+      s.integrity = 'sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI';
+      s.crossOrigin = 'anonymous';
+      s.onload = () => resolve(window.PDFLib);
+      s.onerror = () => { pdfLibLoading = null; reject(new Error('Could not load the PDF library')); };
+      document.head.appendChild(s);
+    });
+  }
+  return pdfLibLoading;
+}
+
 async function downloadCombined() {
   const btn = document.getElementById('download-btn');
   const status = document.getElementById('dl-status');
@@ -338,7 +354,7 @@ async function downloadCombined() {
   status.textContent = '';
 
   try {
-    const { PDFDocument } = PDFLib;
+    const { PDFDocument } = await loadPdfLib();
     const out = await PDFDocument.create();
     for (const p of selectedPdfs) {
       // Fetch via our own same-origin proxy so the browser never makes a
