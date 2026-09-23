@@ -1,0 +1,34 @@
+{title: JED Test Alpha}
+{artist: JED Test}
+{key: D}
+{ccli: 0000001}
+{copyright: Test content - not a real song}
+{footer: JED OnSong test file}
+
+{start_of_verse: Verse 1}
+[D]This is a test song [G]made by JED
+[A]Delete it any time you [D]like
+{end_of_verse}
+
+{start_of_chorus}
+[G]Test, test, [D]one two three
+[A]Checking OnSong [D]imports
+{end_of_chorus}
+
+{new_song}
+{title: JED Test: Beta's Song (Café)}
+{artist: JED Test}
+{key: C}
+{ccli: 0000002}
+{copyright: Test content - not a real song}
+{footer: JED OnSong test file}
+
+{start_of_verse: Verse 1}
+[C]A title with a [F]colon, apostrophe,
+[G]brackets and an [C]accent
+{end_of_verse}
+
+{start_of_chorus}
+[F]Does the set link [C]find me?
+[G]Let's find [C]out
+{end_of_chorus}

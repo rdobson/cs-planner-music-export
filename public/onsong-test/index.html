@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JED OnSong Tests</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #f5f5f7; color: #1d1d1f; min-height: 100vh; }
+  header { background: #1d1d1f; color: #fff; padding: 16px 24px; }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  header p { font-size: 0.85rem; color: #aaa; margin-top: 2px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px 80px; }
+
+  .card { background: #fff; border-radius: 12px; padding: 22px; margin-bottom: 18px;
+          box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .card h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
+  .card > p, .card li { font-size: 0.9rem; color: #444; line-height: 1.55; }
+  .card ol, .card ul { padding-left: 20px; margin: 6px 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+  label { font-size: 0.85rem; color: #555; }
+  input[type=text], select { font-size: 0.9rem; padding: 7px 9px; border: 1px solid #ccc;
+                             border-radius: 7px; background: #fff; max-width: 100%; }
+  .btn { display: inline-block; background: #007aff; color: #fff; border: none;
+         padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+         text-decoration: none; cursor: pointer; }
+  .btn:hover { background: #0060df; }
+  .btn.secondary { background: #e8e8ed; color: #1d1d1f; }
+  .btn.secondary:hover { background: #dcdce2; }
+  .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem;
+         background: #f8f8fa; border: 1px solid #e3e3e8; border-radius: 7px; padding: 8px;
+         word-break: break-all; color: #333; margin-top: 8px; }
+  .note { font-size: 0.8rem; color: #888; margin-top: 8px; line-height: 1.5; }
+  .ok { color: #1a7f37; font-weight: 600; }
+  .bad { color: #c62828; font-weight: 600; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.82rem; margin-top: 10px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+  th { background: #fafafa; font-weight: 600; }
+  td.id { font-family: ui-monospace, Menlo, monospace; font-size: 0.7rem; color: #666; word-break: break-all; }
+  .order { display: inline-block; min-width: 22px; text-align: center; font-weight: 700; color: #007aff; }
+  .table-wrap { max-height: 420px; overflow: auto; border: 1px solid #eee; border-radius: 8px; }
+
+  #log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.74rem;
+         white-space: pre-wrap; word-break: break-all; background: #1d1d1f; color: #e8e8e8;
+         border-radius: 8px; padding: 12px; max-height: 360px; overflow: auto; margin-top: 10px; }
+  #returned { border-left: 4px solid #007aff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>JED &middot; OnSong tests</h1>
+  <p>Throwaway page for trying OnSong's URL scheme on an iPad. Use Safari.</p>
+</header>
+
+<div class="container">
+
+  <div class="card" id="returned" hidden>
+    <h2>Returned from OnSong</h2>
+    <div id="returned-body"></div>
+  </div>
+
+  <!-- ── Test 1 ─────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>1. Library check (export round trip)</h2>
+    <p>Asks OnSong to export a list of songs and send it back to this page. Try it with
+       <strong>all-songs</strong> first. If nothing comes back, try <strong>current</strong>
+       after opening All Songs in OnSong.</p>
+    <div class="row">
+      <label>collection
+        <select id="t1-collection">
+          <option>all-songs</option>
+          <option>current</option>
+          <option>All Songs</option>
+        </select>
+      </label>
+      <label>return data in
+        <select id="t1-where">
+          <option value="h">fragment (#…&amp;onsong=)</option>
+          <option value="q">query string (?…&amp;onsong=), small libraries only</option>
+        </select>
+      </label>
+      <label>padding (chars)
+        <select id="t1-pad">
+          <option value="0">0</option>
+          <option value="2000">2,000</option>
+          <option value="6000">6,000</option>
+          <option value="12000">12,000</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>extra columns: param
+        <select id="t1-propname">
+          <option value="">(none, use defaults)</option>
+          <option>properties</option>
+          <option>fields</option>
+          <option>columns</option>
+          <option>property</option>
+        </select>
+      </label>
+      <label>values <input type="text" id="t1-propvals" value="id,title,artist,key,ccli" size="26"></label>
+    </div>
+    <div class="row"><a class="btn" id="t1-go">Export from OnSong &rarr;</a></div>
+    <div class="url" id="t1-url"></div>
+    <p class="note">The padding stands in for a real JED plan inside the return address, to check that
+       long return addresses survive. <code>end=OK</code> comes after it, so if that's missing when you
+       come back, the address was cut off. The "extra columns" parameter name is a guess because OnSong's
+       docs leave it out. Try each one and see whether a <em>key</em> or <em>ccli</em> column appears.</p>
+  </div>
+
+  <!-- ── Test 2 ─────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>2. Import a combined ChordPro file</h2>
+    <p>The sample file holds two made-up songs separated by <code>{new_song}</code>:
+       <strong>JED Test Alpha</strong> (key D) and <strong>JED Test: Beta's Song (Café)</strong> (key C).
+       Try each way of getting it into OnSong. Delete the songs from OnSong between tries, or keep them
+       to see the duplicate prompt.</p>
+    <div class="row">
+      <label>MIME type for share/download
+        <select id="t2-mime">
+          <option>text/plain</option>
+          <option>application/octet-stream</option>
+          <option>text/x-chordpro</option>
+        </select>
+      </label>
+      <label>filename <input type="text" id="t2-name" value="jed-test.chordpro" size="20"></label>
+      <label>2c payload
+        <select id="t2-size">
+          <option value="0">sample file (2 songs)</option>
+          <option value="3">3 filler songs (format tests)</option>
+          <option value="6">6 filler songs (~25 KB link)</option>
+          <option value="12">12 filler songs (~50 KB link)</option>
+          <option value="24">24 filler songs (~100 KB link)</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>filler line endings
+        <select id="t2-eol">
+          <option value="crlf">CRLF (like SongSelect)</option>
+          <option value="lf">LF</option>
+        </select>
+      </label>
+      <label>separator
+        <select id="t2-sep">
+          <option value="new_song">{new_song}</option>
+          <option value="ns">{ns}</option>
+          <option value="inline">{new_song}{title: …} on one line</option>
+          <option value="title">no separator, just the next {title:}</option>
+        </select>
+      </label>
+      <label>sections
+        <select id="t2-sections">
+          <option value="env">{start_of_verse: Verse n} &hellip; {end_of_verse}</option>
+          <option value="none">none (plain lyrics)</option>
+        </select>
+      </label>
+      <label>tag <input type="text" id="t2-tag" value="A" size="3"></label>
+    </div>
+    <div class="row">
+      <button class="btn" id="t2-share" type="button">2a. Share sheet&hellip;</button>
+      <button class="btn secondary" id="t2-download" type="button">2b. Download</button>
+      <a class="btn secondary" id="t2-importdata">2c. onsong://ImportData link</a>
+      <a class="btn secondary" id="t2-importurl">2d. onsong:// file URL</a>
+    </div>
+    <ul>
+      <li><strong>2a</strong> opens the iPad Share sheet. Is OnSong listed? Do both songs import separately?</li>
+      <li><strong>2b</strong> saves the file to Downloads. Then open it in OnSong from Files or the Downloads list.</li>
+      <li><strong>2c</strong> puts the whole file inside the link as Base64. No download step, if it works.</li>
+      <li><strong>2d</strong> lets OnSong fetch the file from this site. The docs say OnSong tries http:// first
+          and follows a redirect to https://.</li>
+    </ul>
+    <div class="url" id="t2-info"></div>
+  </div>
+
+  <!-- ── Test 3 ─────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>3. Create a set</h2>
+    <p>Uses the song list from the most recent successful Test 1. Tap songs to add them to the set,
+       in order. Tap again to remove. After importing in Test 2, run Test 1 again so the test songs show up here.</p>
+    <div id="t3-empty" class="note">No library data yet. Run Test 1 first.</div>
+    <div id="t3-body" hidden>
+      <div class="row">
+        <label>filter <input type="text" id="t3-filter" placeholder="e.g. JED Test" size="18"></label>
+        <span class="note" id="t3-source" style="margin:0"></span>
+      </div>
+      <div class="table-wrap"><table id="t3-table"></table></div>
+      <div class="row">
+        <label>set name <input type="text" id="t3-setname" size="22"></label>
+        <label>match by
+          <select id="t3-mode">
+            <option value="id">OnSong ID</option>
+            <option value="slug">title slug (e.g. jed-test-alpha)</option>
+            <option value="title">exact title</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="t3-bogus"> add a song that doesn't exist</label>
+      </div>
+      <div class="row">
+        <a class="btn" id="t3-go">Create set in OnSong &rarr;</a>
+        <button class="btn secondary" id="t3-clear" type="button">Clear selection</button>
+      </div>
+      <div class="url" id="t3-url"></div>
+    </div>
+  </div>
+
+  <!-- ── Results ────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Results log</h2>
+    <p>Everything this page sees is logged here and saved on this iPad, so it survives the trips to OnSong
+       and back. When you've finished, copy it and paste it into the Claude thread. Add your own notes
+       about what happened in OnSong (prompts, how songs were named, the order in the set, and so on).</p>
+    <div class="row">
+      <label style="flex:1">note <input type="text" id="note" style="width:100%" placeholder="e.g. 2a: OnSong not in share sheet, had to tap More"></label>
+      <button class="btn secondary" id="note-add" type="button">Add note</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="log-copy" type="button">Copy results</button>
+      <button class="btn secondary" id="log-clear" type="button">Clear log</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script>
+const BASE = location.origin + location.pathname;
+const LOG_KEY = 'jed-onsong-test-log';
+const LIB_KEY = 'jed-onsong-test-library';
+let sample = '';          // sample ChordPro text (CRLF)
+let selected = [];        // indices into library.rows, in set order
+let library = null;       // {columns, rows:[{...}], at, source}
+
+// ── storage (best-effort; page still works without it) ────────────────────────
+function load(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch (e) { return fallback; }
+}
+function save(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+}
+
+// ── log ───────────────────────────────────────────────────────────────────────
+function log(msg) {
+  const entries = load(LOG_KEY, []);
+  entries.push(new Date().toISOString().slice(11, 19) + '  ' + msg);
+  save(LOG_KEY, entries);
+  renderLog(entries);
+}
+function renderLog(entries) {
+  entries = entries || load(LOG_KEY, []);
+  const el = document.getElementById('log');
+  el.textContent = entries.length ? entries.join('\n') : '(empty)';
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function slug(title) {
+  return String(title).normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function b64encodeUtf8(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+function b64decodeUtf8(b64) {
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder('utf-8').decode(bytes);
+}
+function defaultSetName() {
+  const d = new Date();
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); // next Sunday (or today)
+  return 'JED Test ' + d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+// ── Test 1: export round trip ─────────────────────────────────────────────────
+function buildExportUrl() {
+  const collection = document.getElementById('t1-collection').value;
+  const where = document.getElementById('t1-where').value;
+  const pad = +document.getElementById('t1-pad').value;
+  const propName = document.getElementById('t1-propname').value;
+  const propVals = document.getElementById('t1-propvals').value.trim();
+
+  const marker = 'rt=' + where + '&pad=' + pad + '&p=' + encodeURIComponent(propName || '-') + '&end=OK&onsong=';
+  const padding = pad ? 'x'.repeat(pad) : '';
+  const returnURL = where === 'q'
+    ? BASE + '?' + (pad ? 'padding=' + padding + '&' : '') + marker
+    : BASE + '#' + (pad ? 'padding=' + padding + '&' : '') + marker;
+
+  let url = 'onsong://export/songs?collection=' + encodeURIComponent(collection);
+  if (propName && propVals) url += '&' + propName + '=' + encodeURIComponent(propVals);
+  url += '&returnURL=' + encodeURIComponent(returnURL);
+  return { url, collection, where, pad, propName, propVals, returnLen: returnURL.length };
+}
+
+function refreshT1() {
+  const e = buildExportUrl();
+  const a = document.getElementById('t1-go');
+  a.href = e.url;
+  const shown = e.pad ? e.url.replace(/x{40,}/, m => 'x…(' + m.length + ')…x') : e.url;
+  document.getElementById('t1-url').textContent = shown + '\n\n(total link length ' + e.url.length + ')';
+}
+
+// Called on page load: did OnSong send us back here with data?
+function checkReturn() {
+  const href = location.href;
+  const idx = href.lastIndexOf('onsong=');
+  if (idx < 0) return;
+
+  const card = document.getElementById('returned');
+  const body = document.getElementById('returned-body');
+  card.hidden = false;
+
+  const inHash = location.hash.includes('onsong=');
+  const params = new URLSearchParams(inHash ? location.hash.slice(1) : location.search);
+  const expectedPad = +(params.get('pad') || 0);
+  const gotPad = (params.get('padding') || '').length;
+  const endOk = params.get('end') === 'OK';
+  const raw = href.slice(idx + 'onsong='.length);
+
+  const facts = [];
+  facts.push('Returned via ' + (inHash ? 'fragment (#)' : 'query (?)') + ', total URL length ' + href.length);
+  facts.push('end=OK marker: ' + (endOk ? 'present' : 'MISSING'));
+  facts.push('padding: expected ' + expectedPad + ', received ' + gotPad);
+  facts.push('extra-columns param tried: ' + (params.get('p') || '-'));
+  facts.push('raw data length ' + raw.length + ' (~' + Math.round(raw.length / 1024) + ' KB), starts: ' + raw.slice(0, 60));
+  facts.push('raw contains: ' + ['%', '+', '/', '=', ' ', '-', '_'].filter(c => raw.includes(c)).join(' ') );
+
+  // Try the likely encodings in turn and keep the first that decodes to tab-separated text.
+  const attempts = [
+    ['as-is', s => s],
+    ['url-decoded', s => decodeURIComponent(s)],
+    ['url-decoded, spaces→+', s => decodeURIComponent(s).replace(/ /g, '+')],
+    ['base64url', s => decodeURIComponent(s).replace(/-/g, '+').replace(/_/g, '/')],
+  ];
+  let text = null, how = null;
+  for (const [name, fn] of attempts) {
+    try {
+      let s = fn(raw);
+      s += '='.repeat((4 - s.length % 4) % 4);
+      const t = b64decodeUtf8(s);
+      if (t.includes('\t') || t.includes('\n')) { text = t; how = name; break; }
+    } catch (e) { /* try next */ }
+  }
+
+  if (text == null) {
+    facts.push('DECODE FAILED with every method');
+    body.innerHTML = '<p class="bad">Couldn\'t decode the returned data.</p><div class="url">' + esc(facts.join('\n')) + '</div>';
+    log('T1 RETURN\n    ' + facts.join('\n    '));
+    return;
+  }
+
+  const lines = text.split(/\r?\n/).filter(l => l.length);
+  const columns = lines[0].split('\t');
+  const rows = lines.slice(1).map(l => {
+    const cells = l.split('\t');
+    const o = {};
+    columns.forEach((c, i) => { o[c] = cells[i] == null ? '' : cells[i]; });
+    return o;
+  });
+  facts.push('decoded using: ' + how);
+  facts.push('line endings: ' + (text.includes('\r\n') ? 'CRLF' : 'LF'));
+  facts.push('columns: ' + JSON.stringify(columns));
+  facts.push('song rows: ' + rows.length);
+  facts.push('first rows:\n      ' + lines.slice(1, 4).map(l => l.replace(/\t/g, ' | ')).join('\n      '));
+  const testSongs = rows.filter(r => /JED Test/i.test(Object.values(r).join(' ')));
+  facts.push('JED test songs found: ' + (testSongs.length
+    ? testSongs.map(r => JSON.stringify(r)).join('\n      ') : 'none'));
+
+  library = { columns, rows, at: new Date().toISOString(), source: how };
+  save(LIB_KEY, library);
+
+  body.innerHTML =
+    '<p class="' + (endOk ? 'ok' : 'bad') + '">' + rows.length + ' songs received' +
+    (endOk ? '' : ' (but the return address was cut off)') + '.</p>' +
+    '<div class="url">' + esc(facts.join('\n')) + '</div>' +
+    '<p class="note">Saved for Test 3 below.</p>';
+  log('T1 RETURN\n    ' + facts.join('\n    '));
+
+  // Tidy the address bar so a reload doesn't log the same return twice.
+  history.replaceState(null, '', BASE);
+}
+
+// ── Test 2: import ────────────────────────────────────────────────────────────
+function sampleFile() {
+  const name = document.getElementById('t2-name').value.trim() || 'jed-test.chordpro';
+  const type = document.getElementById('t2-mime').value;
+  return new File([sample], name, { type });
+}
+
+async function t2Share() {
+  const file = sampleFile();
+  const can = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+  log('T2a share: canShare(files)=' + can + ', type=' + file.type + ', name=' + file.name);
+  if (!can) { alert('This browser says it can\'t share files. Logged.'); return; }
+  try {
+    await navigator.share({ files: [file], title: file.name });
+    log('T2a share: share sheet completed (a target was picked)');
+  } catch (e) {
+    log('T2a share: ' + e.name + ': ' + e.message);
+  }
+}
+
+function t2Download() {
+  const file = sampleFile();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file);
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  log('T2b download: triggered, type=' + file.type + ', name=' + file.name);
+}
+
+// Filler songs roughly the size of a real SongSelect chart (~3 KB each), for link-length tests.
+// The format options below let us find what makes OnSong mis-render songs after the first.
+function fillerOptions() {
+  return {
+    eol: document.getElementById('t2-eol').value,
+    sep: document.getElementById('t2-sep').value,
+    sections: document.getElementById('t2-sections').value,
+    tag: document.getElementById('t2-tag').value.trim(),
+  };
+}
+
+function fillerFile(count) {
+  const o = fillerOptions();
+  const verse = '[D]Filler line for testing how [G]long an import link can be\n' +
+                '[A]OnSong should import this as its [D]own song\n';
+  const songs = [];
+  for (let n = 1; n <= count; n++) {
+    const title = 'JED Size Test ' + (o.tag ? o.tag + ' ' : '') + String(n).padStart(2, '0');
+    let body = '{title: ' + title + '}\n{artist: JED Test}\n{key: D}\n{footer: JED OnSong test file}\n\n';
+    for (let v = 1; v <= 8; v++) {
+      body += o.sections === 'env'
+        ? '{start_of_verse: Verse ' + v + '}\n' + verse.repeat(3) + '{end_of_verse}\n\n'
+        : verse.repeat(3) + '\n';
+    }
+    songs.push(body);
+  }
+  const joiner = { inline: '{new_song}', title: '' }[o.sep];
+  const text = songs.join(joiner != null ? joiner : '{' + o.sep + '}\n');
+  return o.eol === 'crlf' ? text.replace(/\n/g, '\r\n') : text;
+}
+
+function refreshT2() {
+  const name = document.getElementById('t2-name').value.trim() || 'jed-test.chordpro';
+  const size = +document.getElementById('t2-size').value;
+  const content = size ? fillerFile(size) : sample;
+  const importData = 'onsong://ImportData/' + encodeURIComponent(name) + '?' + b64encodeUtf8(content);
+  const importUrl = 'onsong://' + location.host + location.pathname + 'jed-test.chordpro';
+  document.getElementById('t2-importdata').href = importData;
+  document.getElementById('t2-importurl').href = importUrl;
+  document.getElementById('t2-info').textContent =
+    'Sample: ' + sample.length + ' chars, ' + (sample.includes('\r\n') ? 'CRLF' : 'LF') + ' line endings\n' +
+    '2c payload: ' + (size ? size + ' filler songs ' + JSON.stringify(fillerOptions()) + ', ' + content.length + ' chars' : 'sample file') +
+    ', link length: ' + importData.length + ' (~' + Math.round(importData.length / 1024) + ' KB)\n' +
+    '2d link: ' + importUrl;
+}
+
+// ── Test 3: create set ────────────────────────────────────────────────────────
+function col(names) {
+  // Find a column by likely name, case-insensitively.
+  const cols = library.columns;
+  for (const n of names) {
+    const hit = cols.find(c => c.toLowerCase() === n);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function renderT3() {
+  library = library || load(LIB_KEY, null);
+  if (!library || !library.rows) return;
+  document.getElementById('t3-empty').hidden = true;
+  document.getElementById('t3-body').hidden = false;
+  document.getElementById('t3-source').textContent =
+    library.rows.length + ' songs from export at ' + library.at.slice(11, 19);
+
+  const filter = document.getElementById('t3-filter').value.trim().toLowerCase();
+  const cols = library.columns;
+  const head = '<tr><th>#</th>' + cols.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr>';
+  const idCol = col(['id', 'song id', 'songid', 'identifier', 'uuid']);
+  const body = library.rows.map((r, i) => {
+    if (filter && !Object.values(r).join(' ').toLowerCase().includes(filter)) return '';
+    const pos = selected.indexOf(i);
+    return '<tr data-i="' + i + '" style="cursor:pointer' + (pos >= 0 ? ';background:#eef5ff' : '') + '">' +
+      '<td><span class="order">' + (pos >= 0 ? pos + 1 : '') + '</span></td>' +
+      cols.map(c => '<td' + (c === idCol ? ' class="id"' : '') + '>' + esc(r[c]) + '</td>').join('') +
+      '</tr>';
+  }).join('');
+  const table = document.getElementById('t3-table');
+  table.innerHTML = head + body;
+  table.querySelectorAll('tr[data-i]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const i = +tr.dataset.i;
+      const pos = selected.indexOf(i);
+      if (pos >= 0) selected.splice(pos, 1); else selected.push(i);
+      renderT3();
+    });
+  });
+  refreshT3();
+}
+
+function refreshT3() {
+  if (!library) return;
+  const mode = document.getElementById('t3-mode').value;
+  const idCol = col(['id', 'song id', 'songid', 'identifier', 'uuid']);
+  const titleCol = col(['title', 'name', 'song title']);
+  const values = selected.map(i => {
+    const r = library.rows[i];
+    if (mode === 'id') return r[idCol];
+    if (mode === 'slug') return slug(r[titleCol]);
+    return r[titleCol];
+  });
+  if (document.getElementById('t3-bogus').checked) {
+    values.splice(Math.min(1, values.length), 0,
+      mode === 'id' ? '00000000-0000-0000-0000-000000000000' : (mode === 'slug' ? 'jed-no-such-song' : 'JED No Such Song'));
+  }
+  const setName = document.getElementById('t3-setname').value.trim() || 'JED Test';
+  const url = 'onsong://open/songs/?' + values.map(v => 'song=' + encodeURIComponent(v)).join('&') +
+    '&set=' + encodeURIComponent(setName).replace(/%20/g, '+');
+  document.getElementById('t3-go').href = url;
+  document.getElementById('t3-url').textContent = values.length ? url : '(select some songs)';
+  if (mode === 'id' && !idCol) document.getElementById('t3-url').textContent = 'No ID column found in the export. Columns: ' + library.columns.join(', ');
+}
+
+// ── wiring ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('#t1-collection, #t1-where, #t1-pad, #t1-propname, #t1-propvals')
+  .forEach(el => el.addEventListener('input', refreshT1));
+document.getElementById('t1-go').addEventListener('click', () => {
+  const e = buildExportUrl();
+  log('T1 export: collection=' + e.collection + ', return in ' + e.where + ', pad=' + e.pad +
+      ', extra=' + (e.propName ? e.propName + '=' + e.propVals : 'none') + ', link length ' + e.url.length);
+});
+
+document.querySelectorAll('#t2-mime, #t2-name, #t2-size, #t2-eol, #t2-sep, #t2-sections, #t2-tag').forEach(el => el.addEventListener('input', refreshT2));
+document.getElementById('t2-share').addEventListener('click', t2Share);
+document.getElementById('t2-download').addEventListener('click', t2Download);
+document.getElementById('t2-importdata').addEventListener('click', () =>
+  log('T2c ImportData link tapped (payload ' + document.getElementById('t2-size').value +
+      ' filler songs ' + JSON.stringify(fillerOptions()) +
+      ', link length ' + document.getElementById('t2-importdata').href.length + ')'));
+document.getElementById('t2-importurl').addEventListener('click', () =>
+  log('T2d file URL tapped: ' + document.getElementById('t2-importurl').href));
+
+document.getElementById('t3-setname').value = defaultSetName();
+document.getElementById('t3-filter').addEventListener('input', renderT3);
+document.querySelectorAll('#t3-mode, #t3-bogus, #t3-setname').forEach(el => el.addEventListener('input', refreshT3));
+document.getElementById('t3-clear').addEventListener('click', () => { selected = []; renderT3(); });
+document.getElementById('t3-go').addEventListener('click', () => {
+  log('T3 set: mode=' + document.getElementById('t3-mode').value +
+      ', bogus=' + document.getElementById('t3-bogus').checked +
+      ', link=' + document.getElementById('t3-go').href);
+});
+
+document.getElementById('note-add').addEventListener('click', () => {
+  const n = document.getElementById('note');
+  if (n.value.trim()) { log('NOTE: ' + n.value.trim()); n.value = ''; }
+});
+document.getElementById('log-copy').addEventListener('click', async () => {
+  const text = 'JED OnSong test results (' + navigator.userAgent + ')\n\n' + load(LOG_KEY, []).join('\n');
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  const b = document.getElementById('log-copy');
+  b.textContent = 'Copied!';
+  setTimeout(() => { b.textContent = 'Copy results'; }, 1500);
+});
+document.getElementById('log-clear').addEventListener('click', () => {
+  if (confirm('Clear the results log?')) { save(LOG_KEY, []); renderLog([]); }
+});
+
+// ── start ─────────────────────────────────────────────────────────────────────
+refreshT1();
+renderLog();
+checkReturn();
+renderT3();
+fetch('jed-test.chordpro').then(r => r.text()).then(t => { sample = t; refreshT2(); })
+  .catch(e => { document.getElementById('t2-info').textContent = 'Could not load sample: ' + e.message; });
+</script>
+</body>
+</html>
